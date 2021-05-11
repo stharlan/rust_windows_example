@@ -1,19 +1,65 @@
 
 use bindings::{Windows::Win32::Gdi::*, Windows::Win32::{SystemServices::*, WindowsAndMessaging}, Windows::Win32::WindowsAndMessaging::*, Windows::Win32::MenusAndResources::*};
 
+fn create_button(pwnd:HWND, control_id:isize)
+{
+
+    // control id is 101
+
+    let class_name = std::ffi::CString::new("BUTTON").expect("BUTTON");
+    let pstr_class_name:PSTR = PSTR(class_name.as_ptr() as *mut _);
+
+    let wnd_name = std::ffi::CString::new("Press Me!").expect("BUTTON");
+    let pstr_wnd_name:PSTR = PSTR(wnd_name.as_ptr() as *mut _);
+
+    let control_id_as_hmenu = HMENU(control_id);
+
+    unsafe 
+    {
+        let module_handle = GetModuleHandleA(None);
+        let h_inst:HINSTANCE = HINSTANCE(module_handle);
+
+        CreateWindowExA(
+            WINDOW_EX_STYLE(0),
+            pstr_class_name,
+            pstr_wnd_name,
+            WINDOW_STYLE::WS_VISIBLE|WINDOW_STYLE::WS_CHILD,
+            5, 5, 100, 30,
+            pwnd,
+            control_id_as_hmenu,
+            h_inst,
+            0 as *mut _);
+    }
+}
+
 extern "system" fn window_proc(hwnd:HWND, msg:u32, w_param:WPARAM, l_param:LPARAM) -> LRESULT {
-    unsafe {
-        match msg {
-            WM_DESTROY => {
-                PostQuitMessage(0);
-                LRESULT(0)
-            } ,
-            WM_QUIT => {
-                let _result = DestroyWindow(hwnd);
-                LRESULT(0)
-            },
-            _ => DefWindowProcA(hwnd, msg, w_param, l_param),
-        }
+    match msg {
+        WM_CREATE => {
+            create_button(hwnd, 101);
+            LRESULT(0)
+        },
+        WM_DESTROY => {
+            unsafe { PostQuitMessage(0); }
+            LRESULT(0)
+        } ,
+        WM_QUIT => {
+            unsafe { DestroyWindow(hwnd); }
+            LRESULT(0)
+        },
+        WM_COMMAND=> {
+            //let hiword = (w_param.0 & 0xff00) >> 16;
+            let loword = w_param.0 & 0xff;
+            match loword {
+                101 => {
+                    println!("Button was pressed!");
+                    LRESULT(0)
+                },
+                _ => LRESULT(0)
+            }
+        },
+        _ => {
+            unsafe { DefWindowProcA(hwnd, msg, w_param, l_param) }
+        },
     }
 }
 
@@ -73,9 +119,9 @@ fn main() -> windows::Result<()> {
                 }
             }
         }
-
-        println!("Done.");
     }
+
+    println!("Done.");
 
     Ok(())
 }
